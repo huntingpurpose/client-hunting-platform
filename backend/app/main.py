@@ -11,6 +11,18 @@ from app.config import SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_
 from app.models import Base, Business
 
 app = FastAPI(title="Client Hunting Platform")
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://client-hunting-platform.vercel.app",
+        "http://localhost:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 class BusinessCreate(BaseModel):
     name: str
