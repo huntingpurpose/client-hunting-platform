@@ -117,7 +117,7 @@ def get_business(business_id: int):
 
 def fetch_cafes_from_overpass():
     """Fetch cafes from Overpass API"""
-    overpass_url = "https://overpass-api.de/api/interpreter"
+    overpass_url = "https://overpass.kumi.systems/api/interpreter"
     query = """
     [out:json];
     (
