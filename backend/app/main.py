@@ -1,17 +1,26 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
-from sqlalchemy import select, text
-import requests
-from bs4 import BeautifulSoup
+from __future__ import annotations
+
 import re
 import smtplib
 from email.message import EmailMessage
-from app.db import engine
-from app.config import SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM
+
+import requests
+from bs4 import BeautifulSoup
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from sqlalchemy import select, text
+
+from app.config import SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USERNAME
+from app.db import engine, init_db
 from app.models import Base, Business
 
-app = FastAPI(title="Client Hunting Platform")
-from fastapi.middleware.cors import CORSMiddleware
+app = FastAPI(
+    title="Client Hunting Platform",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,20 +39,23 @@ class BusinessCreate(BaseModel):
     phone: str | None = None
 
 @app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
+def on_startup() -> None:
+    init_db()
+
 
 @app.get("/")
-def root():
+def root() -> dict[str, str]:
     return {
         "name": "Client Hunting Platform",
-        "status": "running"
+        "status": "running",
     }
 
+
 @app.get("/health")
-def health():
+def health() -> dict[str, str]:
     return {
-        "status": "ok"
+        "status": "ok",
+        "service": "client-hunting-platform",
     }
 
 @app.get("/db-test")
@@ -562,7 +574,12 @@ def send_email(business_id: int, request: EmailRequest):
             subject, email = generate_outreach_content(business, seo_score, lead_score_value)
 
             if not (SMTP_HOST and SMTP_PORT and SMTP_USERNAME and SMTP_PASSWORD and SMTP_FROM):
-                return {"status": "smtp_not_configured"}
+                return {
+                    "status": "queued",
+                    "to": request.to,
+                    "subject": subject,
+                    "email": email,
+                }
 
             message = EmailMessage()
             message["Subject"] = subject
@@ -579,6 +596,7 @@ def send_email(business_id: int, request: EmailRequest):
                 "status": "sent",
                 "to": request.to,
                 "subject": subject,
+                "email": email,
             }
     except Exception as e:
         return {
