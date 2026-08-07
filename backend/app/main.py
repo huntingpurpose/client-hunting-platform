@@ -6,7 +6,7 @@ from email.message import EmailMessage
 
 import requests
 from bs4 import BeautifulSoup
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import select, text
@@ -14,6 +14,15 @@ from sqlalchemy import select, text
 from app.config import SMTP_FROM, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT, SMTP_USERNAME
 from app.db import engine, init_db
 from app.models import Base, Business
+from app.services.business_service import (
+    BusinessCreateRequest,
+    BusinessUpdateRequest,
+    create_business,
+    delete_business,
+    get_business,
+    list_businesses,
+    update_business,
+)
 
 app = FastAPI(
     title="Client Hunting Platform",
@@ -37,6 +46,7 @@ class BusinessCreate(BaseModel):
     name: str
     website: str | None = None
     phone: str | None = None
+
 
 @app.on_event("startup")
 def on_startup() -> None:
@@ -67,65 +77,29 @@ def db_test():
             "result": result.scalar()
         }
 
-@app.post("/businesses")
-def create_business(business: BusinessCreate):
-    with engine.connect() as conn:
-        result = conn.execute(
-            text(
-                "INSERT INTO businesses (name, website, phone) VALUES (:name, :website, :phone) RETURNING id, name, website, phone"
-            ),
-            {
-                "name": business.name,
-                "website": business.website,
-                "phone": business.phone,
-            },
-        )
-        row = result.mappings().first()
-        conn.commit()
-        return {
-            "id": row["id"],
-            "name": row["name"],
-            "website": row["website"],
-            "phone": row["phone"],
-        }
+@app.post("/businesses", status_code=status.HTTP_201_CREATED)
+def create_business_endpoint(business: BusinessCreateRequest) -> dict[str, object]:
+    return create_business(business)
+
 
 @app.get("/businesses")
-def list_businesses():
-    with engine.connect() as conn:
-        result = conn.execute(
-            select(
-                Business.id,
-                Business.name,
-                Business.website,
-                Business.phone,
-                Business.latitude,
-                Business.longitude,
-            )
-        )
-        businesses = [dict(row) for row in result.mappings().all()]
-        return businesses
+def list_businesses_endpoint() -> list[dict[str, object]]:
+    return list_businesses()
+
 
 @app.get("/businesses/{business_id}")
-def get_business(business_id: int):
-    with engine.connect() as conn:
-        result = conn.execute(
-            select(
-                Business.id,
-                Business.name,
-                Business.website,
-                Business.phone,
-                Business.latitude,
-                Business.longitude,
-                Business.email,
-                Business.facebook,
-                Business.instagram,
-                Business.linkedin,
-            ).where(Business.id == business_id)
-        )
-        business = result.mappings().first()
-        if business is None:
-            return {"error": "Business not found"}
-        return dict(business)
+def get_business_endpoint(business_id: int) -> dict[str, object]:
+    return get_business(business_id)
+
+
+@app.put("/businesses/{business_id}")
+def update_business_endpoint(business_id: int, business: BusinessUpdateRequest) -> dict[str, object]:
+    return update_business(business_id, business)
+
+
+@app.delete("/businesses/{business_id}")
+def delete_business_endpoint(business_id: int) -> dict[str, bool]:
+    return delete_business(business_id)
 
 def fetch_cafes_from_overpass():
     """Fetch cafes from Overpass API"""
