@@ -34,6 +34,7 @@ class Business(Base):
     facebook = Column(String(1024), nullable=True)
     instagram = Column(String(1024), nullable=True)
     linkedin = Column(String(1024), nullable=True)
+    owner_name = Column(String(255), nullable=True)
     status = Column(String(64), nullable=True, default="active")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, nullable=False, onupdate=datetime.utcnow)

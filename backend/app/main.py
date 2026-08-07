@@ -24,6 +24,7 @@ from app.services.business_service import (
     update_business,
 )
 from app.services.collector_service import collect_businesses
+from app.services.enrichment_service import enrich_business as enrich_business_service
 
 app = FastAPI(
     title="Client Hunting Platform",
@@ -110,6 +111,11 @@ def delete_business_endpoint(business_id: int) -> dict[str, bool]:
 @app.post("/search")
 def search_businesses(payload: SearchRequest) -> dict[str, int]:
     return collect_businesses(payload.query)
+
+
+@app.post("/enrich/{business_id}")
+def enrich_business_endpoint(business_id: int) -> dict[str, object]:
+    return enrich_business_service(business_id)
 
 def fetch_cafes_from_overpass():
     """Fetch cafes from Overpass API"""
