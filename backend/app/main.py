@@ -23,6 +23,7 @@ from app.services.business_service import (
     list_businesses,
     update_business,
 )
+from app.services.collector_service import collect_businesses
 
 app = FastAPI(
     title="Client Hunting Platform",
@@ -46,6 +47,10 @@ class BusinessCreate(BaseModel):
     name: str
     website: str | None = None
     phone: str | None = None
+
+
+class SearchRequest(BaseModel):
+    query: str
 
 
 @app.on_event("startup")
@@ -100,6 +105,11 @@ def update_business_endpoint(business_id: int, business: BusinessUpdateRequest) 
 @app.delete("/businesses/{business_id}")
 def delete_business_endpoint(business_id: int) -> dict[str, bool]:
     return delete_business(business_id)
+
+
+@app.post("/search")
+def search_businesses(payload: SearchRequest) -> dict[str, int]:
+    return collect_businesses(payload.query)
 
 def fetch_cafes_from_overpass():
     """Fetch cafes from Overpass API"""
