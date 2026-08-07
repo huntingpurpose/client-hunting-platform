@@ -25,6 +25,7 @@ from app.services.business_service import (
 )
 from app.services.collector_service import collect_businesses
 from app.services.enrichment_service import enrich_business as enrich_business_service
+from app.services.seo_audit_service import get_seo_audit, run_seo_audit
 
 app = FastAPI(
     title="Client Hunting Platform",
@@ -116,6 +117,55 @@ def search_businesses(payload: SearchRequest) -> dict[str, int]:
 @app.post("/enrich/{business_id}")
 def enrich_business_endpoint(business_id: int) -> dict[str, object]:
     return enrich_business_service(business_id)
+
+
+@app.post("/seo-audit/{business_id}")
+def seo_audit_endpoint(business_id: int):
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(select(Business.id, Business.name, Business.website).where(Business.id == business_id))
+            row = result.mappings().first()
+            if row is None:
+                return {"error": "Business not found"}
+            business = dict(row)
+            if not business.get("website"):
+                return {"status": "no_website"}
+            try:
+                response = requests.get(business["website"], timeout=10)
+                response.raise_for_status()
+                html = response.text
+            except Exception as exc:
+                return {"error": f"Failed to fetch website: {str(exc)}"}
+            soup = BeautifulSoup(html, "html.parser")
+            title_tag = soup.find("title")
+            title = title_tag.get_text().strip() if title_tag else None
+            meta_description_tag = soup.find("meta", attrs={"name": "description"})
+            meta_description = meta_description_tag.get("content", "").strip() if meta_description_tag else None
+            h1_tag = soup.find("h1")
+            h1 = h1_tag.get_text().strip() if h1_tag else None
+            seo_score = 0
+            if title:
+                seo_score += 30
+            if meta_description:
+                seo_score += 30
+            if h1:
+                seo_score += 40
+            return {
+                "has_title": bool(title),
+                "title": title,
+                "has_meta_description": bool(meta_description),
+                "meta_description": meta_description,
+                "has_h1": bool(h1),
+                "h1": h1,
+                "seo_score": seo_score,
+            }
+    except Exception as exc:
+        return {"error": str(exc), "type": type(exc).__name__}
+
+
+@app.get("/seo-audit/{business_id}")
+def get_seo_audit_endpoint(business_id: int) -> dict[str, object]:
+    return get_seo_audit(business_id)
 
 def fetch_cafes_from_overpass():
     """Fetch cafes from Overpass API"""
